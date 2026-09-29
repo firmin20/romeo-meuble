@@ -1,0 +1,6 @@
+{
+  "name": "ROMÉO MEUBLE — Menuiserie & Tapisserie SaaS",
+  "description": "Logiciel SaaS professionnel de devis, commandes, paiements FCFA et génération PDF pour la menuiserie et tapisserie ROMÉO MEUBLE à Yaoundé, Cameroun.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
