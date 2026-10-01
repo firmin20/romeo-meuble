@@ -14,7 +14,7 @@ import {
   ArrowUpDown
 } from 'lucide-react';
 import { Quote, CompanySettings, QuoteStatus } from '../types';
-import { formatFCFA, formatDate, buildWhatsAppUrl, QUOTE_STATUS_LABELS } from '../lib/formatters';
+import { formatFCFA, formatDate, buildWhatsAppUrl, buildQuoteWhatsAppMessage, QUOTE_STATUS_LABELS } from '../lib/formatters';
 import { StorageService } from '../lib/storage';
 import { useToast } from './Toast';
 
@@ -54,7 +54,8 @@ export const QuotesList: React.FC<QuotesListProps> = ({
         quote.quote_number.toLowerCase().includes(query) ||
         quote.client_name.toLowerCase().includes(query) ||
         quote.client_phone.toLowerCase().includes(query) ||
-        quote.client_address.toLowerCase().includes(query);
+        quote.client_address.toLowerCase().includes(query) ||
+        (quote.project_object && quote.project_object.toLowerCase().includes(query));
 
       return matchesStatus && matchesSearch;
     });
@@ -207,6 +208,13 @@ export const QuotesList: React.FC<QuotesListProps> = ({
                     <span className="text-xs text-slate-400">({quote.client_phone})</span>
                   </div>
 
+                  {quote.project_object && (
+                    <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-amber-50 text-amber-900 border border-amber-200/80 text-xs font-semibold">
+                      <span>Objet :</span>
+                      <span>{quote.project_object}</span>
+                    </div>
+                  )}
+
                   <p className="text-xs text-slate-500 truncate max-w-2xl">
                     {quote.items.map(it => `${it.quantity}x ${it.designation}`).join(', ')}
                   </p>
@@ -284,7 +292,7 @@ export const QuotesList: React.FC<QuotesListProps> = ({
                   <a
                     href={buildWhatsAppUrl(
                       quote.client_whatsapp || quote.client_phone,
-                      `Bonjour ${quote.client_name},\n\nVotre devis ROMÉO MEUBLE N° ${quote.quote_number} est disponible.\nMontant total : ${formatFCFA(quote.total_amount)}.\nAcompte demandé : ${formatFCFA(quote.deposit_requested)}.\n\nVous trouverez le devis PDF ci-joint.\n\nMerci pour votre confiance.\n\nROMÉO MEUBLE\nMenuiserie & Tapisserie\nWhatsApp : ${company.phone_primary}`
+                      buildQuoteWhatsAppMessage(quote, company)
                     )}
                     target="_blank"
                     rel="noreferrer"

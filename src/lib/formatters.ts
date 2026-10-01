@@ -89,6 +89,42 @@ export function buildWhatsAppUrl(phone: string, message: string): string {
   return `https://wa.me/${digits}?text=${encodedText}`;
 }
 
+/**
+ * Build professional WhatsApp quote message matching ROMÉO MEUBLE specifications
+ */
+export function buildQuoteWhatsAppMessage(quote: {
+  quote_number: string;
+  client_name?: string;
+  project_object?: string;
+  total_amount: number;
+  deposit_requested?: number;
+  balance_due?: number;
+}, company: {
+  name: string;
+  activity: string;
+  phone_primary: string;
+  phone_secondary: string;
+}): string {
+  const greeting = quote.client_name?.trim() ? `Bonjour ${quote.client_name.trim()},` : 'Bonjour,';
+  const objectText = quote.project_object?.trim() ? `\n"${quote.project_object.trim()}"\n` : '';
+  const depositPart = (quote.deposit_requested && quote.deposit_requested > 0)
+    ? `\nAcompte convenu : ${formatFCFA(quote.deposit_requested)}\nReste à payer : ${formatFCFA(quote.balance_due ?? (quote.total_amount - quote.deposit_requested))}`
+    : '';
+
+  return `${greeting}
+
+Veuillez trouver ci-joint votre devis N° ${quote.quote_number} concernant :
+${objectText}
+Montant total : ${formatFCFA(quote.total_amount)}${depositPart}
+
+Merci pour votre confiance.
+
+${company.name}
+${company.activity}
+${company.phone_primary}
+${company.phone_secondary}`;
+}
+
 export const QUOTE_STATUS_LABELS: Record<QuoteStatus, { label: string; textClass: string; bgClass: string }> = {
   brouillon: { label: 'Brouillon', textClass: 'text-slate-600', bgClass: 'bg-slate-100' },
   envoye: { label: 'Envoyé', textClass: 'text-blue-700', bgClass: 'bg-blue-50' },

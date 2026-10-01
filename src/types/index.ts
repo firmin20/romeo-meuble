@@ -20,6 +20,8 @@ export interface CompanySettings {
   currency: string;
   logo_url: string;
   signature_url: string;
+  stamp_url?: string;
+  show_stamp_on_quotes?: boolean;
   default_terms: string;
   default_whatsapp_message: string;
   updated_at: string;
@@ -64,6 +66,12 @@ export interface Quote {
   client_address: string;
   client_email?: string;
 
+  // Project details
+  project_object: string; // Objet du devis *
+  project_description?: string; // Description du projet / travaux
+  execution_location?: string; // Lieu d'exécution des travaux
+  estimated_duration?: string; // Durée estimée des travaux
+
   // Line items
   items: QuoteItem[];
 
@@ -79,6 +87,7 @@ export interface Quote {
   // Notes & terms
   notes?: string;
   terms_and_conditions: string;
+  include_stamp?: boolean;
 
   converted_to_order_id?: string;
   created_at: string;

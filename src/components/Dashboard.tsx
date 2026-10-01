@@ -18,7 +18,7 @@ import {
   ExternalLink
 } from 'lucide-react';
 import { CompanySettings, Quote, Client, Order } from '../types';
-import { formatFCFA, formatDate, buildWhatsAppUrl, QUOTE_STATUS_LABELS } from '../lib/formatters';
+import { formatFCFA, formatDate, buildWhatsAppUrl, buildQuoteWhatsAppMessage, QUOTE_STATUS_LABELS } from '../lib/formatters';
 
 interface DashboardProps {
   company: CompanySettings;
@@ -227,9 +227,14 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         </span>
                         <span className="text-xs text-slate-400 hidden sm:inline">· {formatDate(quote.date)}</span>
                       </div>
-                      <p className="text-sm font-medium text-slate-800 mt-0.5 truncate">
+                      <p className="text-sm font-bold text-slate-800 mt-0.5 truncate">
                         {quote.client_name}
                       </p>
+                      {quote.project_object && (
+                        <p className="text-xs font-medium text-amber-900 truncate">
+                          {quote.project_object}
+                        </p>
+                      )}
                       <p className="text-xs text-slate-500 truncate">
                         {quote.items.length} prestation{quote.items.length > 1 ? 's' : ''} : {quote.items[0]?.designation}
                       </p>
@@ -265,7 +270,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                       <a
                         href={buildWhatsAppUrl(
                           quote.client_whatsapp || quote.client_phone,
-                          `Bonjour ${quote.client_name},\nVotre devis ROMÉO MEUBLE N° ${quote.quote_number} de ${formatFCFA(quote.total_amount)} est disponible. Merci de votre confiance.`
+                          buildQuoteWhatsAppMessage(quote, company)
                         )}
                         target="_blank"
                         rel="noreferrer"

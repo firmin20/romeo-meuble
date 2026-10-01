@@ -31,8 +31,10 @@ export const DEFAULT_COMPANY: CompanySettings = {
   country: 'Cameroun',
   email: 'contact@romeo-meuble.cm',
   currency: 'FCFA',
-  logo_url: '', // Default to clean typography or image asset
-  signature_url: '',
+  logo_url: '/assets/logo.png',
+  signature_url: '/assets/signature.png',
+  stamp_url: '/assets/cachet.png',
+  show_stamp_on_quotes: true,
   default_terms: 'Ce devis est établi selon les dimensions, matériaux, tissus et finitions convenus avec le client. La fabrication commence dès validation du devis et encaissement de l\'acompte convenu. Les délais d\'exécution courent à compter de la réception de l\'acompte.',
   default_whatsapp_message: 'Bonjour {client_name},\n\nVotre devis ROMÉO MEUBLE N° {quote_number} est disponible.\nMontant total : {total_amount} FCFA.\nAcompte demandé : {deposit_amount} FCFA.\n\nVous trouverez le devis PDF complet ci-joint.\n\nMerci pour votre confiance.\n\nROMÉO MEUBLE\nMenuiserie & Tapisserie\nWhatsApp : +237 688 757 194',
   updated_at: new Date().toISOString(),
@@ -112,6 +114,10 @@ const SEED_QUOTES: Quote[] = [
     client_whatsapp: '237699123456',
     client_address: 'Bastos, face ambassade, Yaoundé',
     client_email: 'patrice.tagne@gmail.com',
+    project_object: 'Confection salon prestige & table basse Iroko',
+    project_description: 'Fabrication artisanale sur mesure avec finitions de prestige.',
+    execution_location: 'Bastos, face ambassade, Yaoundé',
+    estimated_duration: '15 jours ouvrés',
     items: [
       {
         id: 'itm_001_1',
@@ -167,6 +173,10 @@ const SEED_QUOTES: Quote[] = [
     client_whatsapp: '237677458921',
     client_address: 'Odza Koweït, entrée goudronnée, Yaoundé',
     client_email: 'jeanne.biyong@yahoo.fr',
+    project_object: 'Aménagement chambre parentale capitonnée',
+    project_description: 'Lit King Size capitonné avec rangements intégrés et chevets suspendus.',
+    execution_location: 'Odza Koweït, Yaoundé',
+    estimated_duration: '10 jours ouvrés',
     items: [
       {
         id: 'itm_002_1',
@@ -212,6 +222,10 @@ const SEED_QUOTES: Quote[] = [
     client_whatsapp: '237694221005',
     client_address: 'Santa Barbara, descente clinique, Yaoundé',
     client_email: 'e.atangana@santemed.cm',
+    project_object: 'Devis de finition bâtiment & réfection salon',
+    project_description: 'Travaux de finition et traitement des éléments en bois, réfection salon d\'attente.',
+    execution_location: 'Santa Barbara, descente clinique, Yaoundé',
+    estimated_duration: '7 jours ouvrés',
     items: [
       {
         id: 'itm_003_1',
@@ -257,6 +271,10 @@ const SEED_QUOTES: Quote[] = [
     client_whatsapp: '237671904412',
     client_address: 'Quartier du Golf, Yaoundé',
     client_email: 'clarisse.fotso@gmail.com',
+    project_object: 'Fabrication table à manger 8 places en Iroko',
+    project_description: 'Table contemporaine avec piètement acier et chaises assorties.',
+    execution_location: 'Quartier du Golf, Yaoundé',
+    estimated_duration: '12 jours ouvrés',
     items: [
       {
         id: 'itm_004_1',
@@ -376,6 +394,26 @@ export class StorageService {
   // --- COMPANY SETTINGS ---
   static getCompany(): CompanySettings {
     const current = loadFromStorage<CompanySettings>(STORAGE_KEYS.COMPANY, DEFAULT_COMPANY);
+    let changed = false;
+    if (!current.logo_url) {
+      current.logo_url = '/assets/logo.png';
+      changed = true;
+    }
+    if (!current.stamp_url || current.stamp_url.includes('romeo-meuble-cachet')) {
+      current.stamp_url = '/assets/cachet.png';
+      changed = true;
+    }
+    if (!current.signature_url) {
+      current.signature_url = '/assets/signature.png';
+      changed = true;
+    }
+    if (current.show_stamp_on_quotes === undefined) {
+      current.show_stamp_on_quotes = true;
+      changed = true;
+    }
+    if (changed) {
+      saveToStorage(STORAGE_KEYS.COMPANY, current);
+    }
     return current;
   }
 
@@ -452,7 +490,15 @@ export class StorageService {
   static getQuotes(): Quote[] {
     const user = this.getCurrentUser();
     const all = loadFromStorage<Quote[]>(STORAGE_KEYS.QUOTES, SEED_QUOTES);
-    return all.filter(q => q.company_id === user.company_id);
+    return all
+      .filter(q => q.company_id === user.company_id)
+      .map(q => ({
+        ...q,
+        project_object: q.project_object || (q.items?.[0]?.designation ? `Confection ${q.items[0].designation}` : 'Travaux de menuiserie et tapisserie'),
+        project_description: q.project_description || '',
+        execution_location: q.execution_location || q.client_address || '',
+        estimated_duration: q.estimated_duration || '',
+      }));
   }
 
   static getQuoteById(id: string): Quote | undefined {
@@ -493,6 +539,10 @@ export class StorageService {
         all[idx] = {
           ...all[idx],
           ...quote,
+          project_object: quote.project_object !== undefined ? quote.project_object : (all[idx].project_object || 'Travaux de menuiserie et tapisserie'),
+          project_description: quote.project_description !== undefined ? quote.project_description : (all[idx].project_description || ''),
+          execution_location: quote.execution_location !== undefined ? quote.execution_location : (all[idx].execution_location || ''),
+          estimated_duration: quote.estimated_duration !== undefined ? quote.estimated_duration : (all[idx].estimated_duration || ''),
           updated_at: now,
         } as Quote;
         saveToStorage(STORAGE_KEYS.QUOTES, all);
@@ -513,6 +563,10 @@ export class StorageService {
       client_whatsapp: quote.client_whatsapp || '',
       client_address: quote.client_address || '',
       client_email: quote.client_email,
+      project_object: quote.project_object || 'Travaux de menuiserie et tapisserie',
+      project_description: quote.project_description || '',
+      execution_location: quote.execution_location || '',
+      estimated_duration: quote.estimated_duration || '',
       items: quote.items || [],
       subtotal: quote.subtotal || 0,
       discount_type: quote.discount_type || 'none',
@@ -523,6 +577,7 @@ export class StorageService {
       balance_due: quote.balance_due || 0,
       notes: quote.notes,
       terms_and_conditions: quote.terms_and_conditions || this.getCompany().default_terms,
+      include_stamp: quote.include_stamp !== undefined ? quote.include_stamp : (this.getCompany().show_stamp_on_quotes ?? true),
       created_at: now,
       updated_at: now,
     };

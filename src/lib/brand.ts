@@ -1,16 +1,63 @@
-import logoPath from '../assets/images/romeo_meuble_logo_1790707216102.jpg';
+export const BRAND_LOGO_SRC = '/assets/logo.png';
+export const BRAND_LOGO_FALLBACK = '/assets/logo.png';
 
-export const BRAND_LOGO_SRC = logoPath;
+export const BRAND_STAMP_SRC = '/assets/cachet.png';
+export const BRAND_STAMP_FALLBACK = '/assets/cachet.png';
+
+export const BRAND_SIGNATURE_SRC = '/assets/signature.png';
+export const BRAND_SIGNATURE_FALLBACK = '/assets/signature.png';
 
 export interface PresetCatalogItem {
   designation: string;
   defaultDescription: string;
   defaultPrice: number;
   unit: string;
-  category: 'salon' | 'chambre' | 'salle_manger' | 'refection' | 'service';
+  category: 'finition' | 'salon' | 'chambre' | 'salle_manger' | 'refection' | 'service';
 }
 
 export const PRESET_CATALOG: PresetCatalogItem[] = [
+  {
+    designation: 'Porte 5 panneaux',
+    defaultDescription: 'Porte en bois massif 5 panneaux avec finitions et moulures soignées',
+    defaultPrice: 75000,
+    unit: 'pièce',
+    category: 'finition',
+  },
+  {
+    designation: 'Couvre joint lambris',
+    defaultDescription: 'Baguettes couvre-joints profilées pour habillage lambris et encadrements',
+    defaultPrice: 35000,
+    unit: 'pièce',
+    category: 'finition',
+  },
+  {
+    designation: 'Vernis bois',
+    defaultDescription: 'Vernis polyuréthane de protection satiné pour menuiserie',
+    defaultPrice: 4250,
+    unit: 'L',
+    category: 'finition',
+  },
+  {
+    designation: 'Diluant',
+    defaultDescription: 'Diluant cellulosique haute performance pour application vernis',
+    defaultPrice: 1000,
+    unit: 'L',
+    category: 'finition',
+  },
+  {
+    designation: 'Fin papier ponce',
+    defaultDescription: 'Lot de feuilles d\'abrasifs grains fins pour préparation de surface',
+    defaultPrice: 5000,
+    unit: 'forfait',
+    category: 'finition',
+  },
+  {
+    designation: 'Main d\'œuvre',
+    defaultDescription: 'Préparation, ajustages, ponçage méticuleux et finitions artisanales',
+    defaultPrice: 40000,
+    unit: 'forfait',
+    category: 'service',
+  },
   {
     designation: 'Canapé 3 places grand confort',
     defaultDescription: 'Structure bois dur traité, mousse haute résilience 35kg/m³, tissu velours ou microfibre antitache au choix',

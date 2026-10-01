@@ -21,6 +21,8 @@ CREATE TABLE IF NOT EXISTS public.companies (
   currency TEXT NOT NULL DEFAULT 'FCFA',
   logo_url TEXT,
   signature_url TEXT,
+  stamp_url TEXT,
+  show_stamp_on_quotes BOOLEAN DEFAULT TRUE,
   default_terms TEXT DEFAULT 'Ce devis est établi selon les dimensions, matériaux, tissus et finitions convenus avec le client. La fabrication commence dès validation du devis et encaissement de l''acompte convenu. Les délais d''exécution courent à compter de la réception de l''acompte.',
   default_whatsapp_message TEXT DEFAULT 'Bonjour {client_name},\n\nVotre devis ROMÉO MEUBLE N° {quote_number} est disponible.\nMontant total : {total_amount} FCFA.\nAcompte demandé : {deposit_amount} FCFA.\n\nVous trouverez le devis PDF complet ci-joint.\n\nMerci pour votre confiance.\n\nROMÉO MEUBLE\nMenuiserie & Tapisserie\nWhatsApp : +237 688 757 194',
   created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -70,6 +72,12 @@ CREATE TABLE IF NOT EXISTS public.quotes (
   client_address TEXT NOT NULL,
   client_email TEXT,
 
+  -- Détails du projet / travaux
+  project_object TEXT NOT NULL DEFAULT 'Devis de finition bâtiment',
+  project_description TEXT,
+  execution_location TEXT,
+  estimated_duration TEXT,
+
   -- Montants financiers en FCFA
   subtotal NUMERIC(12, 2) NOT NULL DEFAULT 0,
   discount_type TEXT NOT NULL DEFAULT 'none' CHECK (discount_type IN ('none', 'percent', 'fixed')),
@@ -81,6 +89,7 @@ CREATE TABLE IF NOT EXISTS public.quotes (
 
   notes TEXT,
   terms_and_conditions TEXT NOT NULL,
+  include_stamp BOOLEAN DEFAULT TRUE,
   converted_to_order_id UUID,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
@@ -189,3 +198,16 @@ CREATE POLICY "Orders isolation" ON public.orders
 
 CREATE POLICY "Payments isolation" ON public.payments
   FOR ALL USING (company_id = public.get_current_user_company_id());
+
+-- 10. SUPABASE STORAGE (LOGOS, CACHETS & SIGNATURES MULTI-TENANT)
+-- Bucket public ou sécurisé pour les ressources visuelles de l'entreprise
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('company-assets', 'company-assets', true)
+ON CONFLICT (id) DO NOTHING;
+
+-- RLS sur les fichiers du stockage Supabase (Isolé par company_id dans le chemin: [company_id]/stamps/...)
+CREATE POLICY "Company Assets Access" ON storage.objects
+  FOR ALL USING (
+    bucket_id = 'company-assets' 
+    AND (storage.foldername(name))[1] = public.get_current_user_company_id()::text
+  );
