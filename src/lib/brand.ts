@@ -13,6 +13,7 @@ export interface PresetCatalogItem {
   defaultPrice: number;
   unit: string;
   category: 'finition' | 'salon' | 'chambre' | 'salle_manger' | 'refection' | 'service';
+  item_type?: 'fourniture' | 'main_d_oeuvre';
 }
 
 export const PRESET_CATALOG: PresetCatalogItem[] = [
@@ -22,6 +23,7 @@ export const PRESET_CATALOG: PresetCatalogItem[] = [
     defaultPrice: 75000,
     unit: 'pièce',
     category: 'finition',
+    item_type: 'fourniture',
   },
   {
     designation: 'Couvre joint lambris',
@@ -29,6 +31,7 @@ export const PRESET_CATALOG: PresetCatalogItem[] = [
     defaultPrice: 35000,
     unit: 'pièce',
     category: 'finition',
+    item_type: 'fourniture',
   },
   {
     designation: 'Vernis bois',
@@ -36,6 +39,7 @@ export const PRESET_CATALOG: PresetCatalogItem[] = [
     defaultPrice: 4250,
     unit: 'L',
     category: 'finition',
+    item_type: 'fourniture',
   },
   {
     designation: 'Diluant',
@@ -43,6 +47,7 @@ export const PRESET_CATALOG: PresetCatalogItem[] = [
     defaultPrice: 1000,
     unit: 'L',
     category: 'finition',
+    item_type: 'fourniture',
   },
   {
     designation: 'Fin papier ponce',
@@ -50,13 +55,47 @@ export const PRESET_CATALOG: PresetCatalogItem[] = [
     defaultPrice: 5000,
     unit: 'forfait',
     category: 'finition',
+    item_type: 'fourniture',
   },
   {
-    designation: 'Main d\'œuvre',
-    defaultDescription: 'Préparation, ajustages, ponçage méticuleux et finitions artisanales',
+    designation: 'Main d\'œuvre de fabrication & menuiserie',
+    defaultDescription: 'Découpe, usinage, assemblage traditionnel, rabotage et mise en forme soignée',
+    defaultPrice: 45000,
+    unit: 'forfait',
+    category: 'service',
+    item_type: 'main_d_oeuvre',
+  },
+  {
+    designation: 'Main d\'œuvre de tapisserie & garnissage',
+    defaultDescription: 'Sanglage, pose mousses haute densité, piquage, capitonnage et habillage tissu',
+    defaultPrice: 50000,
+    unit: 'forfait',
+    category: 'service',
+    item_type: 'main_d_oeuvre',
+  },
+  {
+    designation: 'Main d\'œuvre ponçage, traitement & vernissage',
+    defaultDescription: 'Préparation des surfaces, traitement fongicide/insecticide et couches de vernis satiné',
+    defaultPrice: 30000,
+    unit: 'forfait',
+    category: 'service',
+    item_type: 'main_d_oeuvre',
+  },
+  {
+    designation: 'Pose & ajustage sur chantier',
+    defaultDescription: 'Installation, calage, fixations et ajustements sur le lieu des travaux du client',
+    defaultPrice: 25000,
+    unit: 'forfait',
+    category: 'service',
+    item_type: 'main_d_oeuvre',
+  },
+  {
+    designation: 'Main d\'œuvre générale atelier',
+    defaultDescription: 'Travaux de finition, ajustages et main d\'œuvre de menuiserie / tapisserie',
     defaultPrice: 40000,
     unit: 'forfait',
     category: 'service',
+    item_type: 'main_d_oeuvre',
   },
   {
     designation: 'Canapé 3 places grand confort',

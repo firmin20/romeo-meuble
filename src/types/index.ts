@@ -24,6 +24,7 @@ export interface CompanySettings {
   show_stamp_on_quotes?: boolean;
   default_terms: string;
   default_whatsapp_message: string;
+  settings_password?: string;
   updated_at: string;
 }
 
@@ -40,8 +41,11 @@ export interface Client {
   updated_at: string;
 }
 
+export type QuoteItemType = 'fourniture' | 'main_d_oeuvre';
+
 export interface QuoteItem {
   id: string;
+  item_type?: QuoteItemType;
   designation: string;
   description?: string;
   quantity: number;
@@ -77,6 +81,8 @@ export interface Quote {
 
   // Financial calculations
   subtotal: number;
+  materials_subtotal?: number;
+  labor_subtotal?: number;
   discount_type: DiscountType;
   discount_value: number;
   discount_amount: number;

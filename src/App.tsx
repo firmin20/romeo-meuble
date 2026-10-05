@@ -19,9 +19,16 @@ import { ClientsList } from './components/ClientsList';
 import { ClientModal } from './components/ClientModal';
 import { SettingsView } from './components/SettingsView';
 import { AuthModal } from './components/AuthModal';
+import { LoginScreen } from './components/LoginScreen';
+import { SettingsPasswordModal } from './components/SettingsPasswordModal';
 
 function MainApp() {
   const { showToast } = useToast();
+
+  // Authentication & Session protection
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(StorageService.isLoggedIn());
+  const [isSettingsUnlocked, setIsSettingsUnlocked] = useState<boolean>(false);
+  const [isSettingsPasswordOpen, setIsSettingsPasswordOpen] = useState<boolean>(false);
 
   // Navigation tab
   const [currentTab, setCurrentTab] = useState<'dashboard' | 'quotes' | 'orders' | 'clients' | 'settings'>('dashboard');
@@ -77,6 +84,7 @@ function MainApp() {
         items: [
           {
             id: `itm_${Date.now()}_1`,
+            item_type: 'fourniture',
             designation: 'Porte 5 panneaux',
             description: 'Porte en bois massif 5 panneaux avec finitions et moulures soignées',
             quantity: 1,
@@ -84,14 +92,26 @@ function MainApp() {
             unit_price: 75000,
             total_price: 75000,
           },
+          {
+            id: `itm_${Date.now()}_2`,
+            item_type: 'main_d_oeuvre',
+            designation: 'Main d\'œuvre de pose & ajustage sur chantier',
+            description: 'Installation, calage, fixations et ajustages sur le lieu des travaux',
+            quantity: 1,
+            unit: 'forfait',
+            unit_price: 25000,
+            total_price: 25000,
+          },
         ],
-        subtotal: 75000,
+        materials_subtotal: 75000,
+        labor_subtotal: 25000,
+        subtotal: 100000,
         discount_type: 'none',
         discount_value: 0,
         discount_amount: 0,
-        total_amount: 75000,
-        deposit_requested: 40000,
-        balance_due: 35000,
+        total_amount: 100000,
+        deposit_requested: 60000,
+        balance_due: 40000,
         terms_and_conditions: company.default_terms,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
@@ -146,6 +166,20 @@ function MainApp() {
     }
   };
 
+  // If user is not authenticated, render LoginScreen
+  if (!isLoggedIn) {
+    return (
+      <LoginScreen
+        company={company}
+        onLoginSuccess={(authedUser) => {
+          setUser(authedUser);
+          setIsLoggedIn(true);
+          refreshAllData();
+        }}
+      />
+    );
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans text-slate-800">
       {/* Top Navbar & Mobile Bottom Tab */}
@@ -153,6 +187,12 @@ function MainApp() {
         currentTab={currentTab}
         onSelectTab={(tab) => {
           setIsEditingQuote(false);
+          if (tab === 'settings') {
+            if (!isSettingsUnlocked) {
+              setIsSettingsPasswordOpen(true);
+              return;
+            }
+          }
           setCurrentTab(tab);
         }}
         onNewQuote={() => handleStartNewQuote()}
@@ -160,8 +200,10 @@ function MainApp() {
         user={user}
         onOpenAuth={() => setIsAuthOpen(true)}
         onLogout={() => {
+          StorageService.logout();
+          setIsLoggedIn(false);
+          setIsSettingsUnlocked(false);
           showToast('info', 'Session fermée', 'Déconnexion effectuée.');
-          setIsAuthOpen(true);
         }}
       />
 
@@ -230,18 +272,36 @@ function MainApp() {
               />
             )}
 
-            {currentTab === 'settings' && (
+            {currentTab === 'settings' && isSettingsUnlocked && (
               <SettingsView
                 company={company}
                 onCompanyUpdated={(updated) => {
                   setCompany(updated);
                   refreshAllData();
                 }}
+                onLockSettings={() => {
+                  setIsSettingsUnlocked(false);
+                  setCurrentTab('dashboard');
+                  showToast('info', 'Paramètres verrouillés', 'Code d\'accès requis pour y réaccéder.');
+                }}
               />
             )}
           </>
         )}
       </main>
+
+      {/* Settings Passcode Protection Modal */}
+      {isSettingsPasswordOpen && (
+        <SettingsPasswordModal
+          isOpen={isSettingsPasswordOpen}
+          onClose={() => setIsSettingsPasswordOpen(false)}
+          onSuccess={() => {
+            setIsSettingsUnlocked(true);
+            setIsSettingsPasswordOpen(false);
+            setCurrentTab('settings');
+          }}
+        />
+      )}
 
       {/* Quote Preview Modal */}
       {activeQuoteForPreview && (

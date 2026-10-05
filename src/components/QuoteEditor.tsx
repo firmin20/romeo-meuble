@@ -29,7 +29,10 @@ import {
   Percent,
   Check,
   X,
-  FileText
+  FileText,
+  Wrench,
+  Hammer,
+  Package
 } from 'lucide-react';
 import { Quote, Client, QuoteItem, CompanySettings, DiscountType, QuoteStatus } from '../types';
 import { StorageService } from '../lib/storage';
@@ -113,10 +116,26 @@ export const QuoteEditor: React.FC<QuoteEditorProps> = ({
   // Step 3: Line Items (Prestations)
   const [items, setItems] = useState<QuoteItem[]>(
     initialQuote?.items?.length
-      ? initialQuote.items
+      ? initialQuote.items.map(it => ({
+          ...it,
+          item_type: it.item_type || (
+            it.designation?.toLowerCase().includes("main d'oeuvre") ||
+            it.designation?.toLowerCase().includes("main d'œuvre") ||
+            it.designation?.toLowerCase().includes("pose") ||
+            it.designation?.toLowerCase().includes("garnissage") ||
+            it.designation?.toLowerCase().includes("tapissage") ||
+            it.designation?.toLowerCase().includes("façonnage") ||
+            it.designation?.toLowerCase().includes("confection") ||
+            it.designation?.toLowerCase().includes("ponçage") ||
+            it.designation?.toLowerCase().includes("installation")
+              ? 'main_d_oeuvre'
+              : 'fourniture'
+          ),
+        }))
       : [
           {
             id: `itm_${Date.now()}_1`,
+            item_type: 'fourniture',
             designation: 'Porte 5 panneaux',
             description: 'Porte en bois massif 5 panneaux avec finitions et moulures soignées',
             quantity: 1,
@@ -124,9 +143,20 @@ export const QuoteEditor: React.FC<QuoteEditorProps> = ({
             unit_price: 75000,
             total_price: 75000,
           },
+          {
+            id: `itm_${Date.now()}_2`,
+            item_type: 'main_d_oeuvre',
+            designation: 'Main d\'œuvre de pose & ajustage sur chantier',
+            description: 'Installation, calage, fixations et ajustages sur le lieu des travaux',
+            quantity: 1,
+            unit: 'forfait',
+            unit_price: 25000,
+            total_price: 25000,
+          },
         ]
   );
   const [showCatalogDrawer, setShowCatalogDrawer] = useState(false);
+  const [catalogFilter, setCatalogFilter] = useState<'all' | 'fourniture' | 'main_d_oeuvre'>('all');
 
   // Step 4: Discount, Deposit & Conditions
   const [discountType, setDiscountType] = useState<DiscountType>(
@@ -179,10 +209,15 @@ export const QuoteEditor: React.FC<QuoteEditorProps> = ({
   };
 
   // Line Item Handlers
-  const handleAddItem = (preset?: PresetCatalogItem) => {
+  const handleAddItem = (
+    preset?: PresetCatalogItem,
+    forcedType?: 'fourniture' | 'main_d_oeuvre'
+  ) => {
+    const itemType = forcedType || (preset?.item_type || 'fourniture');
     const newItem: QuoteItem = preset
       ? {
           id: `itm_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+          item_type: itemType,
           designation: preset.designation,
           description: preset.defaultDescription,
           quantity: 1,
@@ -192,17 +227,18 @@ export const QuoteEditor: React.FC<QuoteEditorProps> = ({
         }
       : {
           id: `itm_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+          item_type: itemType,
           designation: '',
           description: '',
           quantity: 1,
-          unit: 'pièce',
+          unit: itemType === 'main_d_oeuvre' ? 'forfait' : 'pièce',
           unit_price: 0,
           total_price: 0,
         };
 
     setItems(prev => [...prev, newItem]);
     if (preset) {
-      showToast('success', 'Prestation ajoutée', preset.designation);
+      showToast('success', itemType === 'main_d_oeuvre' ? 'Main d\'œuvre ajoutée' : 'Fourniture ajoutée', preset.designation);
     }
   };
 
@@ -247,8 +283,16 @@ export const QuoteEditor: React.FC<QuoteEditorProps> = ({
     setItems(newItems);
   };
 
-  // Financial Calculations
-  const subtotal = items.reduce((acc, it) => acc + (it.total_price || 0), 0);
+  // Financial Calculations: Separate Fournitures & Main d'œuvre
+  const materialsSubtotal = items
+    .filter(it => it.item_type !== 'main_d_oeuvre')
+    .reduce((acc, it) => acc + (it.total_price || 0), 0);
+
+  const laborSubtotal = items
+    .filter(it => it.item_type === 'main_d_oeuvre')
+    .reduce((acc, it) => acc + (it.total_price || 0), 0);
+
+  const subtotal = materialsSubtotal + laborSubtotal;
 
   let discountAmount = 0;
   if (discountType === 'percent') {
@@ -360,8 +404,10 @@ export const QuoteEditor: React.FC<QuoteEditorProps> = ({
       project_description: projectDescription.trim() || undefined,
       execution_location: executionLocation.trim() || undefined,
       estimated_duration: estimatedDuration.trim() || undefined,
-      items,
+      items: items.map(it => ({ ...it, item_type: it.item_type || 'fourniture' })),
       subtotal,
+      materials_subtotal: materialsSubtotal,
+      labor_subtotal: laborSubtotal,
       discount_type: discountType,
       discount_value: discountValue,
       discount_amount: discountAmount,
@@ -858,19 +904,34 @@ export const QuoteEditor: React.FC<QuoteEditorProps> = ({
                   </span>
                   <div>
                     <h2 className="font-display font-bold text-lg text-slate-900">
-                      Prestations & Articles du Devis
+                      Prestations, Fournitures & Main d'œuvre
                     </h2>
                     <p className="text-xs text-slate-500">
-                      Ajoutez les fournitures, travaux de menuiserie, matériaux et main d'œuvre.
+                      Distinguez clairement les matériaux/fournitures et la main d'œuvre de fabrication ou de pose.
                     </p>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleAddItem(undefined, 'fourniture')}
+                    className="px-3 py-1.5 text-xs font-bold text-slate-900 bg-amber-100 hover:bg-amber-200 border border-amber-300 rounded-lg transition-colors flex items-center gap-1 cursor-pointer shadow-2xs"
+                  >
+                    <span>🪵 + Fourniture</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleAddItem(undefined, 'main_d_oeuvre')}
+                    className="px-3 py-1.5 text-xs font-bold text-white bg-indigo-900 hover:bg-indigo-800 rounded-lg transition-colors flex items-center gap-1 cursor-pointer shadow-2xs"
+                  >
+                    <Wrench className="w-3.5 h-3.5 text-amber-300" />
+                    <span>🛠️ + Main d'œuvre</span>
+                  </button>
                   <button
                     type="button"
                     onClick={() => setShowCatalogDrawer(!showCatalogDrawer)}
-                    className="px-3 py-2 text-xs font-bold text-amber-900 bg-amber-100 hover:bg-amber-200 border border-amber-300 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
+                    className="px-3 py-1.5 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
                   >
                     <Sparkles className="w-3.5 h-3.5 text-amber-700" />
                     <span>{showCatalogDrawer ? 'Masquer modèles' : 'Modèles rapides'}</span>
@@ -878,214 +939,360 @@ export const QuoteEditor: React.FC<QuoteEditorProps> = ({
                 </div>
               </div>
 
-              {/* Quick Preset Catalog Box */}
+              {/* Récapitulatif Synthétique Fournitures & Main d'œuvre */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 p-3.5 bg-gradient-to-r from-amber-50/90 via-slate-50 to-indigo-50/80 rounded-xl border border-amber-200 text-xs">
+                <div className="flex items-center justify-between sm:justify-start sm:gap-2">
+                  <span className="font-bold text-slate-700 flex items-center gap-1.5">
+                    <span className="text-sm">🪵</span>
+                    <span>Fournitures & Matériaux :</span>
+                  </span>
+                  <span className="font-mono font-extrabold text-slate-900 bg-white px-2 py-0.5 rounded border border-slate-200">
+                    {formatFCFA(materialsSubtotal)}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between sm:justify-start sm:gap-2">
+                  <span className="font-bold text-indigo-950 flex items-center gap-1.5">
+                    <Wrench className="w-3.5 h-3.5 text-indigo-700" />
+                    <span>Partie Main d'œuvre :</span>
+                  </span>
+                  <span className="font-mono font-extrabold text-indigo-900 bg-white px-2 py-0.5 rounded border border-indigo-200">
+                    {formatFCFA(laborSubtotal)}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between sm:justify-start sm:gap-2 pt-1.5 sm:pt-0 border-t sm:border-t-0 sm:border-l border-amber-200 sm:pl-3">
+                  <span className="font-black text-amber-950">Sous-total brut :</span>
+                  <span className="font-mono font-black text-amber-900 text-sm bg-amber-200/80 px-2 py-0.5 rounded">
+                    {formatFCFA(subtotal)}
+                  </span>
+                </div>
+              </div>
+
+              {/* Quick Preset Catalog Box with Category Filters */}
               {showCatalogDrawer && (
                 <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-slate-800">
-                      Cliquez sur un modèle pour l'ajouter instantanément au devis :
-                    </span>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-slate-800">
+                        Cliquez pour insérer un modèle :
+                      </span>
+                      {/* Filter Pills */}
+                      <div className="inline-flex rounded-lg border border-slate-200 bg-white p-0.5 text-[11px]">
+                        <button
+                          type="button"
+                          onClick={() => setCatalogFilter('all')}
+                          className={`px-2 py-0.5 rounded font-semibold cursor-pointer ${
+                            catalogFilter === 'all' ? 'bg-amber-100 text-amber-900 font-bold' : 'text-slate-600'
+                          }`}
+                        >
+                          Tous
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setCatalogFilter('fourniture')}
+                          className={`px-2 py-0.5 rounded font-semibold cursor-pointer ${
+                            catalogFilter === 'fourniture' ? 'bg-amber-100 text-amber-900 font-bold' : 'text-slate-600'
+                          }`}
+                        >
+                          🪵 Fournitures
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setCatalogFilter('main_d_oeuvre')}
+                          className={`px-2 py-0.5 rounded font-semibold cursor-pointer ${
+                            catalogFilter === 'main_d_oeuvre' ? 'bg-indigo-100 text-indigo-900 font-bold' : 'text-slate-600'
+                          }`}
+                        >
+                          🛠️ Main d'œuvre
+                        </button>
+                      </div>
+                    </div>
                     <button
                       type="button"
                       onClick={() => setShowCatalogDrawer(false)}
-                      className="text-slate-400 hover:text-slate-600 text-xs"
+                      className="text-slate-400 hover:text-slate-600 text-xs self-end sm:self-auto cursor-pointer"
                     >
                       Fermer ✕
                     </button>
                   </div>
+
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                    {PRESET_CATALOG.slice(0, 9).map((preset, idx) => (
-                      <button
-                        key={idx}
-                        type="button"
-                        onClick={() => handleAddItem(preset)}
-                        className="p-2.5 text-left bg-white hover:bg-amber-50 hover:border-amber-300 rounded-lg border border-slate-200 transition-all text-xs flex flex-col justify-between cursor-pointer group shadow-2xs"
-                      >
-                        <div className="font-bold text-slate-900 group-hover:text-amber-900">
-                          + {preset.designation}
-                        </div>
-                        <div className="flex items-center justify-between mt-1 text-[11px] text-slate-500">
-                          <span>Unité: {preset.unit}</span>
-                          <span className="font-mono font-semibold text-slate-700">
-                            {formatFCFA(preset.defaultPrice)}
-                          </span>
-                        </div>
-                      </button>
-                    ))}
+                    {PRESET_CATALOG
+                      .filter(preset => {
+                        if (catalogFilter === 'all') return true;
+                        return (preset.item_type || 'fourniture') === catalogFilter;
+                      })
+                      .map((preset, idx) => {
+                        const isLaborPreset = preset.item_type === 'main_d_oeuvre';
+                        return (
+                          <button
+                            key={idx}
+                            type="button"
+                            onClick={() => handleAddItem(preset, preset.item_type || 'fourniture')}
+                            className={`p-2.5 text-left bg-white rounded-lg border transition-all text-xs flex flex-col justify-between cursor-pointer group shadow-2xs ${
+                              isLaborPreset 
+                                ? 'hover:bg-indigo-50/70 hover:border-indigo-300 border-indigo-100' 
+                                : 'hover:bg-amber-50 hover:border-amber-300 border-slate-200'
+                            }`}
+                          >
+                            <div className="flex items-start justify-between gap-1.5">
+                              <span className="font-bold text-slate-900 group-hover:text-amber-950">
+                                + {preset.designation}
+                              </span>
+                              <span className={`text-[10px] px-1.5 py-0.5 rounded font-semibold shrink-0 ${
+                                isLaborPreset ? 'bg-indigo-100 text-indigo-900' : 'bg-amber-100 text-amber-900'
+                              }`}>
+                                {isLaborPreset ? '🛠️ M.O.' : '🪵 Fourniture'}
+                              </span>
+                            </div>
+                            <div className="flex items-center justify-between mt-1.5 text-[11px] text-slate-500">
+                              <span>Unité : {preset.unit}</span>
+                              <span className="font-mono font-bold text-slate-800">
+                                {formatFCFA(preset.defaultPrice)}
+                              </span>
+                            </div>
+                          </button>
+                        );
+                      })}
                   </div>
                 </div>
               )}
 
               {/* Items List */}
               <div className="space-y-4">
-                {items.map((item, index) => (
-                  <div
-                    key={item.id}
-                    className="p-3.5 sm:p-4 rounded-xl border border-slate-200 bg-slate-50/60 hover:bg-slate-50 transition-colors space-y-3 relative"
-                  >
-                    {/* Item Header */}
-                    <div className="flex items-center justify-between border-b border-slate-200/70 pb-2">
-                      <div className="flex items-center gap-2">
-                        <span className="w-5 h-5 rounded-md bg-slate-200 text-slate-700 text-xs font-mono font-bold flex items-center justify-center">
-                          {index + 1}
-                        </span>
-                        <span className="text-xs font-bold text-slate-700">
-                          Prestation N° {index + 1}
-                        </span>
+                {items.map((item, index) => {
+                  const isLabor = item.item_type === 'main_d_oeuvre';
+                  return (
+                    <div
+                      key={item.id}
+                      className={`p-3.5 sm:p-4 rounded-xl border transition-colors space-y-3 relative ${
+                        isLabor 
+                          ? 'border-indigo-200 bg-indigo-50/20 hover:bg-indigo-50/30' 
+                          : 'border-slate-200 bg-slate-50/60 hover:bg-slate-50'
+                      }`}
+                    >
+                      {/* Item Header */}
+                      <div className="flex flex-wrap items-center justify-between border-b border-slate-200/70 pb-2 gap-2">
+                        <div className="flex items-center gap-2">
+                          <span className={`w-5 h-5 rounded-md text-xs font-mono font-bold flex items-center justify-center ${
+                            isLabor ? 'bg-indigo-200 text-indigo-900' : 'bg-slate-200 text-slate-700'
+                          }`}>
+                            {index + 1}
+                          </span>
+
+                          {/* Item Type Switcher Pill */}
+                          <div className="inline-flex rounded-lg border border-slate-200 p-0.5 bg-white text-[11px] shadow-2xs">
+                            <button
+                              type="button"
+                              onClick={() => handleUpdateItem(item.id, { item_type: 'fourniture' })}
+                              className={`px-2.5 py-0.5 rounded font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                                !isLabor
+                                  ? 'bg-amber-100 text-amber-900 border border-amber-300 shadow-2xs'
+                                  : 'text-slate-500 hover:text-slate-800'
+                              }`}
+                            >
+                              <span>🪵</span>
+                              <span>Fourniture / Matériau</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleUpdateItem(item.id, { item_type: 'main_d_oeuvre' })}
+                              className={`px-2.5 py-0.5 rounded font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                                isLabor
+                                  ? 'bg-indigo-600 text-white border border-indigo-700 shadow-2xs'
+                                  : 'text-slate-500 hover:text-slate-800'
+                              }`}
+                            >
+                              <Wrench className="w-3 h-3" />
+                              <span>Partie Main d'œuvre</span>
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-1 ml-auto">
+                          <button
+                            type="button"
+                            disabled={index === 0}
+                            onClick={() => handleMoveItem(index, 'up')}
+                            title="Déplacer vers le haut"
+                            className="p-1.5 text-slate-400 hover:text-slate-700 disabled:opacity-30 disabled:cursor-not-allowed rounded cursor-pointer"
+                          >
+                            <ArrowUp className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            disabled={index === items.length - 1}
+                            onClick={() => handleMoveItem(index, 'down')}
+                            title="Déplacer vers le bas"
+                            className="p-1.5 text-slate-400 hover:text-slate-700 disabled:opacity-30 disabled:cursor-not-allowed rounded cursor-pointer"
+                          >
+                            <ArrowDown className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDuplicateItem(item)}
+                            title="Dupliquer cette ligne"
+                            className="p-1.5 text-slate-400 hover:text-amber-800 rounded cursor-pointer"
+                          >
+                            <Copy className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteItem(item.id)}
+                            title="Supprimer cette ligne"
+                            className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded cursor-pointer ml-1"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </div>
 
-                      <div className="flex items-center gap-1">
-                        <button
-                          type="button"
-                          disabled={index === 0}
-                          onClick={() => handleMoveItem(index, 'up')}
-                          title="Déplacer vers le haut"
-                          className="p-1.5 text-slate-400 hover:text-slate-700 disabled:opacity-30 disabled:cursor-not-allowed rounded cursor-pointer"
-                        >
-                          <ArrowUp className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          type="button"
-                          disabled={index === items.length - 1}
-                          onClick={() => handleMoveItem(index, 'down')}
-                          title="Déplacer vers le bas"
-                          className="p-1.5 text-slate-400 hover:text-slate-700 disabled:opacity-30 disabled:cursor-not-allowed rounded cursor-pointer"
-                        >
-                          <ArrowDown className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDuplicateItem(item)}
-                          title="Dupliquer cette ligne"
-                          className="p-1.5 text-slate-400 hover:text-amber-800 rounded cursor-pointer"
-                        >
-                          <Copy className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteItem(item.id)}
-                          title="Supprimer cette ligne"
-                          className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded cursor-pointer ml-1"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Designation & Description */}
-                    <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
-                      <div className="sm:col-span-7">
-                        <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                          Désignation de la prestation / fourniture <span className="text-rose-500">*</span>
-                        </label>
-                        <input
-                          type="text"
-                          required
-                          placeholder="Ex : Porte 5 panneaux, Vernis bois, Main d'œuvre..."
-                          value={item.designation}
-                          onChange={(e) => handleUpdateItem(item.id, { designation: e.target.value })}
-                          className="w-full text-xs sm:text-sm rounded-lg border border-slate-300 p-2.5 bg-white font-medium focus:ring-2 focus:ring-amber-500"
-                        />
-                      </div>
-                      <div className="sm:col-span-5">
-                        <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                          Précisions / dimensions (optionnel)
-                        </label>
-                        <input
-                          type="text"
-                          placeholder="Ex : Bois massif traité, 140x200, coloris camel"
-                          value={item.description || ''}
-                          onChange={(e) => handleUpdateItem(item.id, { description: e.target.value })}
-                          className="w-full text-xs sm:text-sm rounded-lg border border-slate-300 p-2.5 bg-white focus:ring-2 focus:ring-amber-500"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Quantity, Unit, Unit Price, Line Total */}
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 items-end pt-1">
-                      <div>
-                        <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                          Quantité <span className="text-rose-500">*</span>
-                        </label>
-                        <input
-                          type="number"
-                          inputMode="decimal"
-                          min={0.1}
-                          step="any"
-                          required
-                          value={item.quantity}
-                          onChange={(e) => handleUpdateItem(item.id, { quantity: parseFloat(e.target.value) || 0 })}
-                          className="w-full text-xs sm:text-sm rounded-lg border border-slate-300 p-2 bg-white font-mono-num font-bold text-center"
-                        />
+                      {/* Designation & Description */}
+                      <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
+                        <div className="sm:col-span-7">
+                          <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                            {isLabor ? "Désignation de la main d'œuvre / travaux *" : "Désignation de la fourniture / prestation *"}
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            placeholder={
+                              isLabor 
+                                ? "Ex : Main d'œuvre fabrication, Pose & ajustage sur chantier, Ponçage & vernissage..." 
+                                : "Ex : Porte 5 panneaux, Tissu velours, Vernis bois, Contreplaqué..."
+                            }
+                            value={item.designation}
+                            onChange={(e) => handleUpdateItem(item.id, { designation: e.target.value })}
+                            className={`w-full text-xs sm:text-sm rounded-lg border p-2.5 bg-white font-medium focus:ring-2 focus:ring-amber-500 ${
+                              isLabor ? 'border-indigo-300' : 'border-slate-300'
+                            }`}
+                          />
+                        </div>
+                        <div className="sm:col-span-5">
+                          <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                            Précisions / dimensions / détails (optionnel)
+                          </label>
+                          <input
+                            type="text"
+                            placeholder={
+                              isLabor
+                                ? "Ex : Façonnage soigné, assemblage traditionnel, équipe de 2 menuisiers..."
+                                : "Ex : Bois massif traité, 140x200, coloris camel, quincaillerie laiton..."
+                            }
+                            value={item.description || ''}
+                            onChange={(e) => handleUpdateItem(item.id, { description: e.target.value })}
+                            className="w-full text-xs sm:text-sm rounded-lg border border-slate-300 p-2.5 bg-white focus:ring-2 focus:ring-amber-500"
+                          />
+                        </div>
                       </div>
 
-                      <div>
-                        <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                          Unité
-                        </label>
-                        <select
-                          value={item.unit}
-                          onChange={(e) => handleUpdateItem(item.id, { unit: e.target.value })}
-                          className="w-full text-xs sm:text-sm rounded-lg border border-slate-300 p-2 bg-white font-medium"
-                        >
-                          <option value="pièce">pièce</option>
-                          <option value="ensemble">ensemble</option>
-                          <option value="forfait">forfait</option>
-                          <option value="L">L (Litre)</option>
-                          <option value="m">m (Mètre)</option>
-                          <option value="m²">m² (Surface)</option>
-                          <option value="m³">m³ (Volume)</option>
-                          <option value="kg">kg (Poids)</option>
-                          <option value="rouleau">rouleau</option>
-                          <option value="paire">paire</option>
-                        </select>
-                      </div>
+                      {/* Quantity, Unit, Unit Price, Line Total */}
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 items-end pt-1">
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                            Quantité <span className="text-rose-500">*</span>
+                          </label>
+                          <input
+                            type="number"
+                            inputMode="decimal"
+                            min={0.1}
+                            step="any"
+                            required
+                            value={item.quantity}
+                            onChange={(e) => handleUpdateItem(item.id, { quantity: parseFloat(e.target.value) || 0 })}
+                            className="w-full text-xs sm:text-sm rounded-lg border border-slate-300 p-2 bg-white font-mono-num font-bold text-center"
+                          />
+                        </div>
 
-                      <div>
-                        <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                          Prix unitaire (FCFA) <span className="text-rose-500">*</span>
-                        </label>
-                        <input
-                          type="number"
-                          inputMode="numeric"
-                          min={0}
-                          step={50}
-                          required
-                          value={item.unit_price}
-                          onChange={(e) => handleUpdateItem(item.id, { unit_price: parseInt(e.target.value, 10) || 0 })}
-                          className="w-full text-xs sm:text-sm rounded-lg border border-slate-300 p-2 bg-white font-mono-num font-bold text-right"
-                        />
-                      </div>
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                            Unité
+                          </label>
+                          <select
+                            value={item.unit}
+                            onChange={(e) => handleUpdateItem(item.id, { unit: e.target.value })}
+                            className="w-full text-xs sm:text-sm rounded-lg border border-slate-300 p-2 bg-white font-medium"
+                          >
+                            <option value="pièce">pièce</option>
+                            <option value="ensemble">ensemble</option>
+                            <option value="forfait">forfait</option>
+                            <option value="L">L (Litre)</option>
+                            <option value="m">m (Mètre)</option>
+                            <option value="m²">m² (Surface)</option>
+                            <option value="m³">m³ (Volume)</option>
+                            <option value="kg">kg (Poids)</option>
+                            <option value="rouleau">rouleau</option>
+                            <option value="paire">paire</option>
+                            <option value="jour">jour</option>
+                            <option value="heure">heure</option>
+                          </select>
+                        </div>
 
-                      <div>
-                        <label className="block text-[11px] font-bold text-slate-500 mb-1">
-                          Total ligne
-                        </label>
-                        <div className="w-full text-xs sm:text-sm rounded-lg bg-slate-200/80 p-2 font-mono font-extrabold text-slate-900 text-right">
-                          {formatFCFA(item.total_price)}
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                            Prix unitaire (FCFA) <span className="text-rose-500">*</span>
+                          </label>
+                          <input
+                            type="number"
+                            inputMode="numeric"
+                            min={0}
+                            step={50}
+                            required
+                            value={item.unit_price}
+                            onChange={(e) => handleUpdateItem(item.id, { unit_price: parseInt(e.target.value, 10) || 0 })}
+                            className="w-full text-xs sm:text-sm rounded-lg border border-slate-300 p-2 bg-white font-mono-num font-bold text-right"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-500 mb-1">
+                            Total ligne
+                          </label>
+                          <div className={`w-full text-xs sm:text-sm rounded-lg p-2 font-mono font-extrabold text-right ${
+                            isLabor ? 'bg-indigo-100/70 text-indigo-950' : 'bg-slate-200/80 text-slate-900'
+                          }`}>
+                            {formatFCFA(item.total_price)}
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
 
-              {/* Add Prestation Button */}
+              {/* Bottom Dual Action Buttons: Add Fourniture or Add Main d'œuvre */}
               <div className="flex flex-col sm:flex-row items-center gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => handleAddItem()}
-                  className="w-full sm:w-auto px-5 py-3 text-xs sm:text-sm font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-xl transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer active:scale-[0.98]"
-                >
-                  <Plus className="w-4 h-4 text-amber-400" />
-                  <span>+ Ajouter une prestation</span>
-                </button>
+                <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto">
+                  <button
+                    type="button"
+                    onClick={() => handleAddItem(undefined, 'fourniture')}
+                    className="flex-1 sm:flex-none px-4 py-3 text-xs sm:text-sm font-bold text-slate-900 bg-amber-100 hover:bg-amber-200 border border-amber-300 rounded-xl transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer active:scale-[0.98]"
+                  >
+                    <span>🪵 + Ajouter Fourniture</span>
+                  </button>
 
-                <div className="w-full sm:ml-auto p-3 bg-amber-50 rounded-xl border border-amber-200 flex items-center justify-between sm:max-w-xs text-xs">
-                  <span className="font-semibold text-amber-950">Sous-total prestations :</span>
-                  <span className="font-mono font-bold text-sm text-amber-900">
-                    {formatFCFA(subtotal)}
-                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleAddItem(undefined, 'main_d_oeuvre')}
+                    className="flex-1 sm:flex-none px-4 py-3 text-xs sm:text-sm font-bold text-white bg-indigo-900 hover:bg-indigo-800 rounded-xl transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer active:scale-[0.98]"
+                  >
+                    <Wrench className="w-4 h-4 text-amber-300" />
+                    <span>🛠️ + Ajouter Main d'œuvre</span>
+                  </button>
+                </div>
+
+                <div className="w-full sm:ml-auto p-3 bg-gradient-to-br from-amber-50 to-slate-50 rounded-xl border border-amber-200 flex flex-col gap-1 sm:max-w-xs text-xs">
+                  <div className="flex items-center justify-between text-slate-700">
+                    <span>🪵 Fournitures & Matériaux :</span>
+                    <span className="font-mono font-bold text-slate-900">{formatFCFA(materialsSubtotal)}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-indigo-950 font-semibold">
+                    <span className="flex items-center gap-1">🛠️ Partie Main d'œuvre :</span>
+                    <span className="font-mono font-bold text-indigo-900">{formatFCFA(laborSubtotal)}</span>
+                  </div>
+                  <div className="flex items-center justify-between pt-1 border-t border-amber-200 font-bold text-amber-950">
+                    <span>Sous-total brut :</span>
+                    <span className="font-mono text-sm text-amber-900">{formatFCFA(subtotal)}</span>
+                  </div>
                 </div>
               </div>
 
@@ -1450,18 +1657,28 @@ export const QuoteEditor: React.FC<QuoteEditorProps> = ({
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-200">
-                      {items.map((it, idx) => (
-                        <tr key={it.id} className="bg-white">
-                          <td className="p-2 font-medium text-slate-900">
-                            {it.designation}
-                            {it.description && <div className="text-[10px] text-slate-500">{it.description}</div>}
-                          </td>
-                          <td className="p-2 text-center font-mono">{it.quantity}</td>
-                          <td className="p-2 text-center text-slate-500">{it.unit}</td>
-                          <td className="p-2 text-right font-mono">{formatFCFA(it.unit_price).replace(' FCFA', '')}</td>
-                          <td className="p-2 text-right font-mono font-bold text-slate-900">{formatFCFA(it.total_price)}</td>
-                        </tr>
-                      ))}
+                      {items.map((it, idx) => {
+                        const isLabor = it.item_type === 'main_d_oeuvre';
+                        return (
+                          <tr key={it.id} className="bg-white">
+                            <td className="p-2 font-medium text-slate-900">
+                              <div className="flex items-center gap-1.5">
+                                <span className={`text-[10px] px-1.5 py-0.2 rounded font-bold ${
+                                  isLabor ? 'bg-indigo-100 text-indigo-900' : 'bg-amber-100 text-amber-900'
+                                }`}>
+                                  {isLabor ? '🛠️ Main d\'œuvre' : '🪵 Fourniture'}
+                                </span>
+                                <span>{it.designation}</span>
+                              </div>
+                              {it.description && <div className="text-[10px] text-slate-500 ml-1 mt-0.5">{it.description}</div>}
+                            </td>
+                            <td className="p-2 text-center font-mono">{it.quantity}</td>
+                            <td className="p-2 text-center text-slate-500">{it.unit}</td>
+                            <td className="p-2 text-right font-mono">{formatFCFA(it.unit_price).replace(' FCFA', '')}</td>
+                            <td className="p-2 text-right font-mono font-bold text-slate-900">{formatFCFA(it.total_price)}</td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -1471,7 +1688,7 @@ export const QuoteEditor: React.FC<QuoteEditorProps> = ({
               <div className="p-4 bg-amber-50/80 rounded-xl border border-amber-200 space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] font-bold text-amber-900 uppercase tracking-wider">
-                    Synthèse Financière
+                    Synthèse Financière (Fournitures & Main d'œuvre)
                   </span>
                   <button
                     type="button"
@@ -1485,8 +1702,16 @@ export const QuoteEditor: React.FC<QuoteEditorProps> = ({
 
                 <div className="space-y-1.5 text-xs">
                   <div className="flex justify-between text-slate-700">
+                    <span>🪵 Fournitures & Matériaux :</span>
+                    <span className="font-mono font-bold text-slate-900">{formatFCFA(materialsSubtotal)}</span>
+                  </div>
+                  <div className="flex justify-between text-indigo-950 font-semibold">
+                    <span className="flex items-center gap-1">🛠️ Partie Main d'œuvre :</span>
+                    <span className="font-mono font-bold text-indigo-900">{formatFCFA(laborSubtotal)}</span>
+                  </div>
+                  <div className="flex justify-between text-slate-800 pt-1 border-t border-amber-200/70 font-semibold">
                     <span>Sous-total brut :</span>
-                    <span className="font-mono font-semibold">{formatFCFA(subtotal)}</span>
+                    <span className="font-mono font-extrabold">{formatFCFA(subtotal)}</span>
                   </div>
                   {discountAmount > 0 && (
                     <div className="flex justify-between text-rose-700">

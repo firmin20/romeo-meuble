@@ -215,6 +215,12 @@ export const QuotesList: React.FC<QuotesListProps> = ({
                     </div>
                   )}
 
+                  {quote.items.some(i => i.item_type === 'main_d_oeuvre') && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-indigo-50 text-indigo-900 border border-indigo-200">
+                      🛠️ Fournitures & Main d'œuvre
+                    </span>
+                  )}
+
                   <p className="text-xs text-slate-500 truncate max-w-2xl">
                     {quote.items.map(it => `${it.quantity}x ${it.designation}`).join(', ')}
                   </p>

@@ -273,91 +273,130 @@ export const QuotePreviewModal: React.FC<QuotePreviewModalProps> = ({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {quote.items.map((item, idx) => (
-                    <tr key={item.id} className={idx % 2 === 1 ? 'bg-slate-50/70' : 'bg-white'}>
-                      <td className="py-3 px-3.5 text-center text-slate-500 font-mono font-bold">
-                        {String(idx + 1).padStart(2, '0')}
-                      </td>
-                      <td className="py-3 px-3.5">
-                        <div className="font-bold text-slate-900 text-sm">{item.designation}</div>
-                        {item.description && (
-                          <div className="text-xs text-slate-500 mt-0.5 leading-snug">
-                            {item.description}
+                  {quote.items.map((item, idx) => {
+                    const isLabor = item.item_type === 'main_d_oeuvre';
+                    return (
+                      <tr key={item.id} className={idx % 2 === 1 ? 'bg-slate-50/70' : 'bg-white'}>
+                        <td className="py-3 px-3.5 text-center text-slate-500 font-mono font-bold">
+                          {String(idx + 1).padStart(2, '0')}
+                        </td>
+                        <td className="py-3 px-3.5">
+                          <div className="flex items-center gap-2">
+                            <span className={`text-[10px] px-2 py-0.5 rounded font-bold ${
+                              isLabor ? 'bg-indigo-100 text-indigo-900 border border-indigo-200' : 'bg-amber-100 text-amber-900 border border-amber-200'
+                            }`}>
+                              {isLabor ? '🛠️ Main d\'œuvre' : '🪵 Fourniture'}
+                            </span>
+                            <span className="font-bold text-slate-900 text-sm">{item.designation}</span>
                           </div>
-                        )}
-                      </td>
-                      <td className="py-3 px-3.5 text-center font-mono font-semibold text-slate-800">
-                        {item.quantity}
-                      </td>
-                      <td className="py-3 px-3.5 text-center text-slate-700">
-                        {item.unit || 'pièce'}
-                      </td>
-                      <td className="py-3 px-3.5 text-right font-mono font-medium text-slate-800">
-                        {formatFCFA(item.unit_price).replace(' FCFA', '')}
-                      </td>
-                      <td className="py-3 px-3.5 text-right font-mono font-extrabold text-slate-950 text-sm">
-                        {formatFCFA(item.total_price)}
-                      </td>
-                    </tr>
-                  ))}
+                          {item.description && (
+                            <div className="text-xs text-slate-500 mt-1 pl-1 leading-snug">
+                              {item.description}
+                            </div>
+                          )}
+                        </td>
+                        <td className="py-3 px-3.5 text-center font-mono font-semibold text-slate-800">
+                          {item.quantity}
+                        </td>
+                        <td className="py-3 px-3.5 text-center text-slate-700">
+                          {item.unit || 'pièce'}
+                        </td>
+                        <td className="py-3 px-3.5 text-right font-mono font-medium text-slate-800">
+                          {formatFCFA(item.unit_price).replace(' FCFA', '')}
+                        </td>
+                        <td className="py-3 px-3.5 text-right font-mono font-extrabold text-slate-950 text-sm">
+                          {formatFCFA(item.total_price)}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
 
             {/* Financial Summary & Conditions */}
-            <div className="grid grid-cols-1 sm:grid-cols-12 gap-6 pt-2">
-              {/* Conditions on left */}
-              <div className="sm:col-span-7 space-y-3">
-                <div>
-                  <h4 className="font-bold text-slate-900 uppercase tracking-wider text-xs text-amber-800">
-                    Conditions du Devis
-                  </h4>
-                  <p className="text-slate-600 text-xs sm:text-sm mt-1.5 leading-relaxed whitespace-pre-line">
-                    {quote.terms_and_conditions || company.default_terms}
-                  </p>
+            {(() => {
+              const materialsSubtotal = (quote.materials_subtotal !== undefined)
+                ? quote.materials_subtotal
+                : quote.items.filter(it => it.item_type !== 'main_d_oeuvre').reduce((s, it) => s + (it.total_price || 0), 0);
+              const laborSubtotal = (quote.labor_subtotal !== undefined)
+                ? quote.labor_subtotal
+                : quote.items.filter(it => it.item_type === 'main_d_oeuvre').reduce((s, it) => s + (it.total_price || 0), 0);
+              const hasSeparateLabor = laborSubtotal > 0 && materialsSubtotal > 0;
+
+              return (
+                <div className="grid grid-cols-1 sm:grid-cols-12 gap-6 pt-2">
+                  {/* Conditions on left */}
+                  <div className="sm:col-span-7 space-y-3">
+                    <div>
+                      <h4 className="font-bold text-slate-900 uppercase tracking-wider text-xs text-amber-800">
+                        Conditions du Devis
+                      </h4>
+                      <p className="text-slate-600 text-xs sm:text-sm mt-1.5 leading-relaxed whitespace-pre-line">
+                        {quote.terms_and_conditions || company.default_terms}
+                      </p>
+                    </div>
+
+                    {quote.notes && (
+                      <div className="p-3 bg-amber-50/60 rounded-xl border border-amber-200/80">
+                        <span className="font-bold text-amber-900 block text-xs">Note au client :</span>
+                        <span className="text-slate-800 italic text-xs sm:text-sm">{quote.notes}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Totals on right */}
+                  <div className="sm:col-span-5 bg-slate-50 rounded-xl p-5 border border-slate-200 text-sm space-y-2.5">
+                    {hasSeparateLabor ? (
+                      <>
+                        <div className="flex justify-between text-slate-700">
+                          <span>🪵 Fournitures & Matériaux :</span>
+                          <span className="font-mono font-semibold text-slate-900">{formatFCFA(materialsSubtotal)}</span>
+                        </div>
+                        <div className="flex justify-between text-indigo-950 font-semibold">
+                          <span>🛠️ Partie Main d'œuvre :</span>
+                          <span className="font-mono font-bold text-indigo-900">{formatFCFA(laborSubtotal)}</span>
+                        </div>
+                        <div className="flex justify-between text-slate-800 pt-1 border-t border-slate-200 font-semibold">
+                          <span>Sous-total brut :</span>
+                          <span className="font-mono font-bold text-slate-900">{formatFCFA(quote.subtotal)}</span>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="flex justify-between text-slate-700">
+                        <span>Sous-total brut :</span>
+                        <span className="font-mono font-semibold text-slate-900">{formatFCFA(quote.subtotal)}</span>
+                      </div>
+                    )}
+
+                    {quote.discount_amount > 0 && (
+                      <div className="flex justify-between text-rose-600">
+                        <span>Remise ({quote.discount_type === 'percent' ? `${quote.discount_value}%` : 'Fixe'}) :</span>
+                        <span className="font-mono font-bold">- {formatFCFA(quote.discount_amount)}</span>
+                      </div>
+                    )}
+
+                    <div className="py-2.5 px-3 bg-amber-950 text-white rounded-lg -mx-1">
+                      <div className="flex justify-between items-center text-sm sm:text-base font-extrabold">
+                        <span>TOTAL NET :</span>
+                        <span className="font-mono text-base sm:text-lg text-amber-300">{formatFCFA(quote.total_amount)}</span>
+                      </div>
+                    </div>
+
+                    <div className="pt-2 border-t border-slate-200 space-y-1.5">
+                      <div className="flex justify-between text-amber-900 font-bold">
+                        <span>Acompte demandé :</span>
+                        <span className="font-mono">{formatFCFA(quote.deposit_requested)}</span>
+                      </div>
+                      <div className="flex justify-between text-rose-700 font-extrabold text-sm sm:text-base">
+                        <span>Reste à payer :</span>
+                        <span className="font-mono">{formatFCFA(quote.balance_due)}</span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-
-                {quote.notes && (
-                  <div className="p-3 bg-amber-50/60 rounded-xl border border-amber-200/80">
-                    <span className="font-bold text-amber-900 block text-xs">Note au client :</span>
-                    <span className="text-slate-800 italic text-xs sm:text-sm">{quote.notes}</span>
-                  </div>
-                )}
-              </div>
-
-              {/* Totals on right */}
-              <div className="sm:col-span-5 bg-slate-50 rounded-xl p-5 border border-slate-200 text-sm space-y-2.5">
-                <div className="flex justify-between text-slate-700">
-                  <span>Sous-total brut :</span>
-                  <span className="font-mono font-semibold text-slate-900">{formatFCFA(quote.subtotal)}</span>
-                </div>
-
-                {quote.discount_amount > 0 && (
-                  <div className="flex justify-between text-rose-600">
-                    <span>Remise ({quote.discount_type === 'percent' ? `${quote.discount_value}%` : 'Fixe'}) :</span>
-                    <span className="font-mono font-bold">- {formatFCFA(quote.discount_amount)}</span>
-                  </div>
-                )}
-
-                <div className="py-2.5 px-3 bg-amber-950 text-white rounded-lg -mx-1">
-                  <div className="flex justify-between items-center text-sm sm:text-base font-extrabold">
-                    <span>TOTAL NET :</span>
-                    <span className="font-mono text-base sm:text-lg text-amber-300">{formatFCFA(quote.total_amount)}</span>
-                  </div>
-                </div>
-
-                <div className="pt-2 border-t border-slate-200 space-y-1.5">
-                  <div className="flex justify-between text-amber-900 font-bold">
-                    <span>Acompte demandé :</span>
-                    <span className="font-mono">{formatFCFA(quote.deposit_requested)}</span>
-                  </div>
-                  <div className="flex justify-between text-rose-700 font-extrabold text-sm sm:text-base">
-                    <span>Reste à payer :</span>
-                    <span className="font-mono">{formatFCFA(quote.balance_due)}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
+              );
+            })()}
 
             {/* Signature & Cachet Area */}
             <div className="grid grid-cols-2 gap-4 pt-6 border-t border-slate-200 text-xs">

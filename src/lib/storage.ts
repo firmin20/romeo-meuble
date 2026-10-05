@@ -17,6 +17,7 @@ const STORAGE_KEYS = {
   PAYMENTS: 'romeo_payments_v1',
   CURRENT_USER: 'romeo_current_user_v1',
   TENANTS: 'romeo_tenants_v1',
+  IS_LOGGED_IN: 'romeo_is_logged_in_v1',
 };
 
 export const DEFAULT_COMPANY: CompanySettings = {
@@ -37,6 +38,7 @@ export const DEFAULT_COMPANY: CompanySettings = {
   show_stamp_on_quotes: true,
   default_terms: 'Ce devis est établi selon les dimensions, matériaux, tissus et finitions convenus avec le client. La fabrication commence dès validation du devis et encaissement de l\'acompte convenu. Les délais d\'exécution courent à compter de la réception de l\'acompte.',
   default_whatsapp_message: 'Bonjour {client_name},\n\nVotre devis ROMÉO MEUBLE N° {quote_number} est disponible.\nMontant total : {total_amount} FCFA.\nAcompte demandé : {deposit_amount} FCFA.\n\nVous trouverez le devis PDF complet ci-joint.\n\nMerci pour votre confiance.\n\nROMÉO MEUBLE\nMenuiserie & Tapisserie\nWhatsApp : +237 688 757 194',
+  settings_password: 'romeo2026',
   updated_at: new Date().toISOString(),
 };
 
@@ -391,6 +393,55 @@ export class StorageService {
     saveToStorage(STORAGE_KEYS.CURRENT_USER, user);
   }
 
+  static isLoggedIn(): boolean {
+    return loadFromStorage<boolean>(STORAGE_KEYS.IS_LOGGED_IN, false);
+  }
+
+  static setLoggedIn(loggedIn: boolean): void {
+    saveToStorage(STORAGE_KEYS.IS_LOGGED_IN, loggedIn);
+  }
+
+  static login(identifier: string, password: string): { success: boolean; message?: string } {
+    const trimmedId = identifier.trim().toLowerCase();
+    const trimmedPass = password.trim();
+
+    const company = this.getCompany();
+    const validPassword = company.settings_password || 'romeo2026';
+
+    // Accept valid atelier password or default 'romeo2026'
+    if (trimmedPass !== validPassword && trimmedPass !== 'romeo2026') {
+      return { 
+        success: false, 
+        message: 'Mot de passe incorrect. Le mot de passe par défaut est : romeo2026' 
+      };
+    }
+
+    const user = this.getCurrentUser();
+    if (trimmedId && trimmedId.includes('@')) {
+      user.email = trimmedId;
+      user.full_name = trimmedId.split('@')[0];
+      this.setCurrentUser(user);
+    }
+
+    this.setLoggedIn(true);
+    return { success: true };
+  }
+
+  static logout(): void {
+    this.setLoggedIn(false);
+  }
+
+  static checkSettingsPassword(password: string): boolean {
+    const company = this.getCompany();
+    const target = (company.settings_password || 'romeo2026').trim();
+    const input = password.trim();
+    return input === target || input === 'romeo2026';
+  }
+
+  static updateSettingsPassword(newPassword: string): void {
+    this.updateCompany({ settings_password: newPassword.trim() });
+  }
+
   // --- COMPANY SETTINGS ---
   static getCompany(): CompanySettings {
     const current = loadFromStorage<CompanySettings>(STORAGE_KEYS.COMPANY, DEFAULT_COMPANY);
@@ -409,6 +460,10 @@ export class StorageService {
     }
     if (current.show_stamp_on_quotes === undefined) {
       current.show_stamp_on_quotes = true;
+      changed = true;
+    }
+    if (!current.settings_password) {
+      current.settings_password = 'romeo2026';
       changed = true;
     }
     if (changed) {
@@ -492,13 +547,42 @@ export class StorageService {
     const all = loadFromStorage<Quote[]>(STORAGE_KEYS.QUOTES, SEED_QUOTES);
     return all
       .filter(q => q.company_id === user.company_id)
-      .map(q => ({
-        ...q,
-        project_object: q.project_object || (q.items?.[0]?.designation ? `Confection ${q.items[0].designation}` : 'Travaux de menuiserie et tapisserie'),
-        project_description: q.project_description || '',
-        execution_location: q.execution_location || q.client_address || '',
-        estimated_duration: q.estimated_duration || '',
-      }));
+      .map(q => {
+        const items = (q.items || []).map(it => ({
+          ...it,
+          item_type: it.item_type || (
+            it.designation?.toLowerCase().includes("main d'oeuvre") ||
+            it.designation?.toLowerCase().includes("main d'œuvre") ||
+            it.designation?.toLowerCase().includes("pose") ||
+            it.designation?.toLowerCase().includes("garnissage") ||
+            it.designation?.toLowerCase().includes("tapissage") ||
+            it.designation?.toLowerCase().includes("façonnage") ||
+            it.designation?.toLowerCase().includes("confection") ||
+            it.designation?.toLowerCase().includes("ponçage")
+              ? 'main_d_oeuvre'
+              : 'fourniture'
+          ),
+        }));
+
+        const materials_subtotal = q.materials_subtotal !== undefined
+          ? q.materials_subtotal
+          : items.filter(i => i.item_type !== 'main_d_oeuvre').reduce((s, i) => s + (i.total_price || 0), 0);
+
+        const labor_subtotal = q.labor_subtotal !== undefined
+          ? q.labor_subtotal
+          : items.filter(i => i.item_type === 'main_d_oeuvre').reduce((s, i) => s + (i.total_price || 0), 0);
+
+        return {
+          ...q,
+          items,
+          materials_subtotal,
+          labor_subtotal,
+          project_object: q.project_object || (items[0]?.designation ? `Confection ${items[0].designation}` : 'Travaux de menuiserie et tapisserie'),
+          project_description: q.project_description || '',
+          execution_location: q.execution_location || q.client_address || '',
+          estimated_duration: q.estimated_duration || '',
+        };
+      });
   }
 
   static getQuoteById(id: string): Quote | undefined {

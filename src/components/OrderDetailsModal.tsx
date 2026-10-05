@@ -241,17 +241,31 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {order.items.map((it) => (
-                    <tr key={it.id}>
-                      <td className="py-2.5 px-3">
-                        <div className="font-semibold text-slate-800">{it.designation}</div>
-                        {it.description && <div className="text-[11px] text-slate-500">{it.description}</div>}
-                      </td>
-                      <td className="py-2.5 px-3 text-center font-mono">{it.quantity} {it.unit}</td>
-                      <td className="py-2.5 px-3 text-right font-mono">{formatFCFA(it.unit_price)}</td>
-                      <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-900">{formatFCFA(it.total_price)}</td>
-                    </tr>
-                  ))}
+                  {order.items.map((it) => {
+                    const isLabor = it.item_type === 'main_d_oeuvre';
+                    return (
+                      <tr key={it.id}>
+                        <td className="py-2.5 px-3">
+                          <div className="flex items-center gap-1.5">
+                            {isLabor ? (
+                              <span className="text-[10px] px-1.5 py-0.5 rounded font-bold bg-indigo-100 text-indigo-900 border border-indigo-200">
+                                🛠️ Main d'œuvre
+                              </span>
+                            ) : (
+                              <span className="text-[10px] px-1.5 py-0.5 rounded font-bold bg-amber-100 text-amber-900 border border-amber-200">
+                                🪵 Fourniture
+                              </span>
+                            )}
+                            <span className="font-semibold text-slate-800">{it.designation}</span>
+                          </div>
+                          {it.description && <div className="text-[11px] text-slate-500 ml-1 mt-0.5">{it.description}</div>}
+                        </td>
+                        <td className="py-2.5 px-3 text-center font-mono">{it.quantity} {it.unit}</td>
+                        <td className="py-2.5 px-3 text-right font-mono">{formatFCFA(it.unit_price)}</td>
+                        <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-900">{formatFCFA(it.total_price)}</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

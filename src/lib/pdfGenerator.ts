@@ -300,12 +300,24 @@ export async function generateQuotePDF(quote: Quote, company: CompanySettings): 
 
   currentY += pBoxH + 6;
 
-  // 4. Line Items Table (Prestations)
+  // 4. Line Items Table (Prestations & Main d'œuvre)
+  const materialsSubtotal = (quote.materials_subtotal !== undefined)
+    ? quote.materials_subtotal
+    : quote.items.filter(it => it.item_type !== 'main_d_oeuvre').reduce((s, it) => s + (it.total_price || 0), 0);
+
+  const laborSubtotal = (quote.labor_subtotal !== undefined)
+    ? quote.labor_subtotal
+    : quote.items.filter(it => it.item_type === 'main_d_oeuvre').reduce((s, it) => s + (it.total_price || 0), 0);
+
+  const hasSeparateLabor = laborSubtotal > 0 && materialsSubtotal > 0;
+
   const tableRows = quote.items.map((item, index) => {
+    const isLabor = item.item_type === 'main_d_oeuvre';
+    const tag = isLabor ? '[MAIN D\'ŒUVRE] ' : '';
     const descriptionText = item.description ? `\n${item.description}` : '';
     return [
       String(index + 1).padStart(2, '0'),
-      `${item.designation}${descriptionText}`,
+      `${tag}${item.designation}${descriptionText}`,
       String(item.quantity),
       item.unit || 'pièce',
       formatFCFA(item.unit_price).replace(' FCFA', ''),
@@ -363,17 +375,18 @@ export async function generateQuotePDF(quote: Quote, company: CompanySettings): 
   const hasWorkshopEndorsement = shouldIncludeStamp || hasSignatureConfigured;
   const sigBoxHeight = hasWorkshopEndorsement ? 42 : 28;
 
-  // Check if we need space for totals and signatures
-  if (currentY > pageHeight - (hasWorkshopEndorsement ? 104 : 88)) {
-    doc.addPage();
-    currentY = margin + 10;
-  }
-
   // 5. Totals & Financial Breakdown (Right-aligned card with enlarged typography)
   const totalsWidth = 86;
   const totalsX = pageWidth - margin - totalsWidth;
   const totalsY = currentY;
-  const totalsBoxHeight = quote.discount_amount > 0 ? 52 : 46;
+  const baseBoxHeight = quote.discount_amount > 0 ? 52 : 46;
+  const totalsBoxHeight = hasSeparateLabor ? baseBoxHeight + 12 : baseBoxHeight;
+
+  // Check if we need space for totals and signatures
+  if (currentY > pageHeight - (hasWorkshopEndorsement ? 104 : 88) - (hasSeparateLabor ? 12 : 0)) {
+    doc.addPage();
+    currentY = margin + 10;
+  }
 
   // Background for financial summary
   doc.setFillColor(lightGrayBg[0], lightGrayBg[1], lightGrayBg[2]);
@@ -382,14 +395,46 @@ export async function generateQuotePDF(quote: Quote, company: CompanySettings): 
   doc.roundedRect(totalsX, totalsY, totalsWidth, totalsBoxHeight, 2, 2, 'S');
 
   let finY = totalsY + 6.5;
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(10);
-  doc.setTextColor(slateMuted[0], slateMuted[1], slateMuted[2]);
-  doc.text("Sous-total brut :", totalsX + 4.5, finY);
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(10.5);
-  doc.setTextColor(slateDark[0], slateDark[1], slateDark[2]);
-  doc.text(formatFCFA(quote.subtotal), totalsX + totalsWidth - 4.5, finY, { align: 'right' });
+
+  if (hasSeparateLabor) {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9.5);
+    doc.setTextColor(slateMuted[0], slateMuted[1], slateMuted[2]);
+    doc.text("Fournitures & Matériaux :", totalsX + 4.5, finY);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.setTextColor(slateDark[0], slateDark[1], slateDark[2]);
+    doc.text(formatFCFA(materialsSubtotal), totalsX + totalsWidth - 4.5, finY, { align: 'right' });
+
+    finY += 6;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9.5);
+    doc.setTextColor(slateMuted[0], slateMuted[1], slateMuted[2]);
+    doc.text("Partie Main d'œuvre :", totalsX + 4.5, finY);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.setTextColor(slateDark[0], slateDark[1], slateDark[2]);
+    doc.text(formatFCFA(laborSubtotal), totalsX + totalsWidth - 4.5, finY, { align: 'right' });
+
+    finY += 6;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9.5);
+    doc.setTextColor(slateMuted[0], slateMuted[1], slateMuted[2]);
+    doc.text("Sous-total brut :", totalsX + 4.5, finY);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.setTextColor(slateDark[0], slateDark[1], slateDark[2]);
+    doc.text(formatFCFA(quote.subtotal), totalsX + totalsWidth - 4.5, finY, { align: 'right' });
+  } else {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    doc.setTextColor(slateMuted[0], slateMuted[1], slateMuted[2]);
+    doc.text("Sous-total brut :", totalsX + 4.5, finY);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10.5);
+    doc.setTextColor(slateDark[0], slateDark[1], slateDark[2]);
+    doc.text(formatFCFA(quote.subtotal), totalsX + totalsWidth - 4.5, finY, { align: 'right' });
+  }
 
   if (quote.discount_amount > 0) {
     finY += 6.5;
